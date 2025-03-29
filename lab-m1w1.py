@@ -14,7 +14,7 @@ def extract_data():
     pokemon_list = [pokemon["name"] for pokemon in data["results"]]
     all_pokemon.extend(pokemon_list)
 
-    print(f"Extracted {len(all_pokemon)} Pokémon names from the API.")
+    print(f"Extracted {len(all_pokemon)} Pokémon names from the API.🎉")
 
     # Loop through the Pokémon names and fetch their details
     df = pd.DataFrame(all_pokemon)
@@ -30,6 +30,7 @@ def extract_data():
 
 
 def load_data():
+    """ Load data into DuckDB and create a table """
     con = duckdb.connect("pokemon.db")
     # Path to Parquet file
     parquet_file = "pokemon_data.parquet"
@@ -44,10 +45,13 @@ def load_data():
         FROM read_parquet(?)
     """, [parquet_file])
 
+    print("Loaded data into DuckDB and created a table.🥇")
+
     con.close()
 
 
 def transform_pokemon_data():
+    """ Transform the data and create a summary table """
     con = duckdb.connect("pokemon.db")
     con.execute("""
         CREATE OR REPLACE TABLE pokemon_stats AS 
@@ -65,6 +69,7 @@ def transform_pokemon_data():
 
     print(result)
     print(result_1)
+    print("Transformed Pokémon data and created summary table.📊")
 
 
     
