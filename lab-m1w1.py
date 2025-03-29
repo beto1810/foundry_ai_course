@@ -4,17 +4,23 @@ import duckdb
 
 def extract_data():
     """ Extract data from the API and save it as a Parquet file """
-
-    url = "https://pokeapi.co/api/v2/pokemon"  # Start URL
     all_pokemon = []
 
-    response = requests.get(url, timeout=10)
+    url = "https://pokeapi.co/api/v2/pokemon"  # Start URL
+    while url:
 
-    data = response.json()
-    pokemon_list = [pokemon["name"] for pokemon in data["results"]]
-    all_pokemon.extend(pokemon_list)
+        response = requests.get(url, timeout=10)
+        data = response.json()
+        pokemon_list = [pokemon["name"] for pokemon in data["results"]]
+        all_pokemon.extend(pokemon_list)
 
-    print(f"Extracted {len(all_pokemon)} Pokémon names from the API.🎉")
+        print(f"Extracted {len(all_pokemon)} Pokémon names from {url}.���")
+        # Update the URL for the next page
+        url = data["next"] if "next" in data else None
+        if not data["next"]:
+            break
+        # Extract details for each Pokémon
+        
 
     # Loop through the Pokémon names and fetch their details
     df = pd.DataFrame(all_pokemon)
@@ -66,15 +72,15 @@ def transform_pokemon_data():
     result = con.execute("SELECT * FROM pokemon_stats").fetchdf()
 
     con.close()
-
-    print(result)
     print(result_1)
+    print(result)
     print("Transformed Pokémon data and created summary table.📊")
 
 
     
 
 def main():
+    extract_data()
     load_data()
     transform_pokemon_data()
 
