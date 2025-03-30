@@ -1,38 +1,57 @@
 import requests
 import pandas as pd
 import duckdb 
+import logging
+import pyarrow as pa
+import pyarrow.parquet as pq 
+import time  
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def extract_data():
     """ Extract data from the API and save it as a Parquet file """
-    all_pokemon = []
+    all_pokemon = {}
 
     url = "https://pokeapi.co/api/v2/pokemon"  # Start URL
     while url:
 
         response = requests.get(url, timeout=10)
-        data = response.json()
-        pokemon_list = [pokemon["name"] for pokemon in data["results"]]
-        all_pokemon.extend(pokemon_list)
-
-        print(f"Extracted {len(all_pokemon)} Pokémon names from {url}.���")
-        # Update the URL for the next page
-        url = data["next"] if "next" in data else None
-        if not data["next"]:
+        if response.status_code == 200:
+            data = response.json()
+            logging.info(f"Fetched {len(data['results'])} Pokémon from {url}")
+            for pokemon in data['results']:
+                name = pokemon['name']
+                pokemon_url = pokemon['url']
+                pokemon_id = pokemon_url.split("/")[-2]
+                pokemon_detail = requests.get(pokemon_url, timeout=10).json()
+                all_pokemon[pokemon_id] = {
+                    "name": name,
+                    "height": pokemon_detail["height"],
+                    "weight": pokemon_detail["weight"],
+                    "types": [t['type']['name'] for t in pokemon_detail['types']],
+                    "abilities": [a['ability']['name'] for a in pokemon_detail['abilities']]
+                }
+                logging.info(f"Saved details for {name}")
+            # Check if there's a next page
+            url = data['next']
+        else:
+            logging.error(f"Failed to fetch data from {url}, status code: {response.status_code}")
             break
-        # Extract details for each Pokémon
-        
+        # Sleep to avoid hitting the API too hard
+        time.sleep(0.6) 
+    
+    # Create a DataFrame from the dictionary
 
-    # Loop through the Pokémon names and fetch their details
-    df = pd.DataFrame(all_pokemon)
+    df = pd.DataFrame(list(all_pokemon.values()))
 
     # Save as Parquet
     parquet_filename = "pokemon_data.parquet"
     df.to_parquet(parquet_filename, engine="pyarrow")
 
-    print(f"Saved {len(df)} Pokémon to {parquet_filename}")
+    logging.info(f"Saved Pokémon data to {parquet_filename}")
 
-
-    return all_pokemon
+    return parquet_filename
 
 
 def load_data():
@@ -63,7 +82,10 @@ def transform_pokemon_data():
         CREATE OR REPLACE TABLE pokemon_stats AS 
         SELECT COUNT(ID) AS total_pokemon, 
             MIN(ID) AS first_id_pokemon, 
-            MAX(ID) AS last_id_pokemon
+            MAX(ID) AS last_id_pokemon,
+            AVG(height) AS avg_height,
+            AVG(weight) AS avg_weight,
+            COUNT(DISTINCT types) AS unique_types
         FROM pokedex
     """)
 
@@ -72,10 +94,8 @@ def transform_pokemon_data():
     result = con.execute("SELECT * FROM pokemon_stats").fetchdf()
 
     con.close()
-    print(result_1)
-    print(result)
-    print("Transformed Pokémon data and created summary table.📊")
-
+    logging.info("Created summary table 'pokemon_stats'")
+    logging.info(f"Stats: {result.to_string()}")
 
     
 
